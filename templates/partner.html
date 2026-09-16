@@ -1,0 +1,729 @@
+{% extends "_base.html" %}
+{% block title %}{{ partner.name }} — Telco Partner Skills{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
+<script src="/static/vendor/xterm/xterm.js"></script>
+<script src="/static/vendor/xterm/addon-fit.js"></script>
+{% endblock %}
+{% block nav_extra %}<span class="nav-crumb">/ {{ partner.name }}</span>{% endblock %}
+{% block content %}
+<div class="partner-page">
+  <div class="partner-header">
+    <div>
+      <h1>{{ partner.name }}</h1>
+      <p class="muted">{{ partner.slug }}-rds-expert &middot;
+        {{ stats.topics }} topics &middot; {{ stats.knowledge }} knowledge &middot;
+        {{ stats.tickets }} tickets &middot; {{ stats.domains }} domains &middot;
+        {{ stats.releases }} releases &middot;
+        {{ stats.operators }} operators
+        {% if stats.uncategorised > 0 %}&middot; <span class="warn">{{ stats.uncategorised }} uncategorised</span>{% endif %}
+      </p>
+      <div class="skill-status-bar">
+        {% if partner.skill_version > 0 %}
+        <span class="skill-badge generated">Skill v{{ partner.skill_version }}</span>
+        <span class="muted" style="font-size:0.75rem">Generated {{ partner.skill_generated_at[:16] | replace('T', ' ') }} UTC</span>
+        {% else %}
+        <span class="skill-badge not-generated">No skill generated</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="partner-actions">
+      <div class="config-dropdown">
+        <button class="btn config-btn" onclick="toggleConfigMenu()" title="Configuration">&#x2699;</button>
+        <div id="config-menu" class="config-menu" hidden>
+          <button onclick="doGenerate(); toggleConfigMenu()">Generate Skill</button>
+          {% if jira_config %}<button onclick="doImport(); toggleConfigMenu()">Sync from Jira</button>{% endif %}
+          <button onclick="showModal('jira-modal'); toggleConfigMenu()">Jira Settings</button>
+          <button onclick="showModal('auth-sources-modal'); toggleConfigMenu()">Auth Sources{% if auth_sources %} ({{ auth_sources|length }}){% endif %}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architect Section -->
+  <div class="architect-hero">
+    <div class="architect-hero-head">
+      <div>
+        <h2>Architect</h2>
+        {% if skill_exists and partner.skill_version > 0 %}
+        <span class="muted" style="font-size:0.8rem">{{ partner.slug }}-rds-expert v{{ partner.skill_version }} &middot; {{ partner.skill_generated_at[:16] | replace('T', ' ') }} UTC</span>
+        {% if skill_outdated %}<span class="skill-outdated-badge" title="Data has changed since last skill generation">⚠ outdated</span>{% endif %}
+        {% elif not skill_exists %}
+        <span class="muted" style="font-size:0.8rem">Generate the skill first to enable the terminal</span>
+        {% endif %}
+      </div>
+      <div>
+        <button id="architect-start-btn" class="btn primary" onclick="startTerminal()">Start Session</button>
+        <button id="architect-stop-btn" class="btn" onclick="stopTerminal()" hidden>End Session</button>
+      </div>
+    </div>
+    <div id="active-topic-indicator" class="active-topic-indicator" hidden></div>
+    <div id="terminal-container"></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="topics" onclick="switchTab('topics')">Topics</button>
+    <button class="tab" data-tab="knowledge" onclick="switchTab('knowledge')">Knowledge</button>
+    <button class="tab" data-tab="tickets" onclick="switchTab('tickets')">ECOPS Tickets</button>
+    <button class="tab" data-tab="domains" onclick="switchTab('domains')">Domains</button>
+    <button class="tab" data-tab="releases" onclick="switchTab('releases')">Releases</button>
+    <button class="tab" data-tab="operators" onclick="switchTab('operators')">Operators{% if operators %} ({{ operators|length }}){% endif %}</button>
+    <button class="tab" data-tab="doc-sources" onclick="switchTab('doc-sources')">Doc Sources{% if doc_sources %} ({{ doc_sources|length }}){% endif %}</button>
+    <button class="tab" data-tab="activity" onclick="switchTab('activity')">Activity</button>
+  </div>
+
+  <!-- Topics Tab -->
+  <div id="tab-topics" class="tab-panel active">
+    <div class="panel-head">
+      <h2>Research Topics</h2>
+      <div style="display:flex;gap:0.4rem">
+        <button class="btn small" onclick="refreshTopics()">Refresh</button>
+        <button class="btn small" onclick="showModal('add-topic-modal')">New Topic</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterTopics('all', this)">All</button>
+      <button class="filter-btn" onclick="filterTopics('open', this)">Open</button>
+      <button class="filter-btn" onclick="filterTopics('in_progress', this)">In Progress</button>
+      <button class="filter-btn" onclick="filterTopics('resolved', this)">Resolved</button>
+      <button class="filter-btn" onclick="filterTopics('parked', this)">Parked</button>
+    </div>
+    <div id="topic-detail-view" hidden></div>
+    {% if topics %}
+    <div id="topic-grid" class="topic-grid">
+      {% for t in topics %}
+      <div class="topic-card" data-status="{{ t.status }}" onclick="expandTopic('{{ t.id }}')">
+        <div class="topic-card-head">
+          <h3>{{ t.title }}</h3>
+          <span class="topic-status {{ t.status }}">{{ t.status | replace('_', ' ') }}</span>
+        </div>
+        {% if t.description %}<p class="topic-desc">{{ t.description }}</p>{% endif %}
+        <div class="topic-card-meta">
+          <span>{{ t.note_count }} notes</span>
+          <span>{{ t.created_at[:10] }}</span>
+          <a href="/partner/{{ partner.slug }}/topics/{{ t.id }}" target="_blank" class="open-tab-link" onclick="event.stopPropagation()" title="Open in new tab">&#x2197;</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">No topics yet. Create a topic to start tracking research.</p>
+    {% endif %}
+  </div>
+
+  <!-- Knowledge Tab -->
+  <div id="tab-knowledge" class="tab-panel" hidden>
+    <div class="panel-head">
+      <h2>Knowledge Store</h2>
+      <button class="btn small" onclick="showModal('add-knowledge-modal')">Add Knowledge</button>
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterKnowledge('all', this)">All</button>
+      <button class="filter-btn" onclick="filterKnowledge('configuration', this)">Configuration</button>
+      <button class="filter-btn" onclick="filterKnowledge('architecture', this)">Architecture</button>
+      <button class="filter-btn" onclick="filterKnowledge('limitation', this)">Limitation</button>
+      <button class="filter-btn" onclick="filterKnowledge('validated_finding', this)">Validated Finding</button>
+      <button class="filter-btn" onclick="filterKnowledge('non_negotiable', this)">Non-Negotiable</button>
+    </div>
+    <div class="filter-bar" id="knowledge-status-filters" style="margin-top:0.25rem">
+      <button class="filter-btn active" onclick="filterKnowledgeStatus('all', this)">All</button>
+      <button class="filter-btn" onclick="filterKnowledgeStatus('pending', this)">Pending</button>
+      <button class="filter-btn" onclick="filterKnowledgeStatus('confirmed', this)">Confirmed</button>
+      <button class="filter-btn" onclick="filterKnowledgeStatus('outdated', this)">Outdated</button>
+    </div>
+    {% if knowledge %}
+    <input type="search" class="table-search" placeholder="Search knowledge…" data-target="knowledge-table" oninput="filterTable(this)">
+    <table class="data-table" id="knowledge-table">
+      <thead><tr><th class="sortable" onclick="sortTable(this)">Status</th><th class="sortable" onclick="sortTable(this)">Category</th><th class="sortable" onclick="sortTable(this)">Fact</th><th>Detail</th><th>Source</th><th></th></tr></thead>
+      <tbody>
+        {% for k in knowledge %}
+        <tr data-category="{{ k.category }}" data-status="{{ k.status|default('confirmed') }}">
+          <td><span class="knowledge-status-badge {{ k.status|default('confirmed') }}">{{ k.status|default('confirmed') }}</span></td>
+          <td><span class="category-badge {{ k.category }}">{{ k.category | replace('_', ' ') }}</span></td>
+          <td>{{ k.fact }}</td>
+          <td>{{ k.detail or '—' }}</td>
+          <td>{% if k.source_url %}<a href="{{ k.source_url }}" target="_blank" class="mono" style="color:var(--accent);font-size:0.75rem">source</a>{% else %}—{% endif %}</td>
+          <td style="white-space:nowrap">
+            {% if k.status|default('confirmed') == 'pending' %}
+            <button class="btn small primary" onclick="setKnowledgeStatus('{{ k.id }}', 'confirmed')">Confirm</button>
+            <button class="btn small" onclick="setKnowledgeStatus('{{ k.id }}', 'rejected')">Reject</button>
+            {% elif k.status|default('confirmed') == 'confirmed' %}
+            <button class="btn small" onclick="setKnowledgeStatus('{{ k.id }}', 'outdated')">Outdated</button>
+            {% endif %}
+            <button class="btn-del" onclick="deleteItem('knowledge', '{{ k.id }}')">×</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No knowledge entries yet. Research topics and promote findings here.</p>
+    {% endif %}
+  </div>
+
+  <!-- Tickets Tab -->
+  <div id="tab-tickets" class="tab-panel" hidden>
+    <div class="panel-head">
+      <h2>ECOPS Tickets</h2>
+      <button class="btn small" onclick="location.reload()">Refresh</button>
+      <button class="btn small" onclick="showModal('add-ticket-modal')">Add Ticket</button>
+    </div>
+    {% if tickets %}
+    <input type="search" class="table-search" placeholder="Search tickets…" data-target="tickets-table" oninput="filterTable(this)">
+    <table class="data-table" id="tickets-table">
+      <thead>
+        <tr><th class="sortable" onclick="sortTable(this)">Key</th><th class="sortable" onclick="sortTable(this)">Summary</th><th class="sortable" onclick="sortTable(this)">Release</th><th class="sortable" onclick="sortTable(this)">Domain</th><th class="sortable" onclick="sortTable(this)">Resolution</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for t in tickets %}
+        <tr>
+          <td class="mono">{{ t.ecops_key }}</td>
+          <td>{{ t.summary }}</td>
+          <td>{{ t.release_name or '—' }}</td>
+          <td>
+            <select onchange="updateTicket('{{ t.id }}', 'domain_id', this.value)" class="inline-select">
+              <option value="">— uncategorised —</option>
+              {% for d in domains %}
+              <option value="{{ d.id }}" {{ 'selected' if d.id == t.domain_id else '' }}>{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>{{ t.resolution or '—' }}</td>
+          <td><button class="btn-del" onclick="deleteItem('tickets', '{{ t.id }}')">×</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No tickets yet. {% if jira_config %}Use "Import from Jira" or add manually.{% else %}Configure Jira or add manually.{% endif %}</p>
+    {% endif %}
+  </div>
+
+  <!-- Domains Tab -->
+  <div id="tab-domains" class="tab-panel" hidden>
+    <div class="panel-head">
+      <h2>Domains</h2>
+      <button class="btn small" onclick="showModal('add-domain-modal')">Add Domain</button>
+      {% if tickets %}
+      <button class="btn small" onclick="suggestDomains()">Auto-suggest from tickets</button>
+      {% endif %}
+    </div>
+    {% if domains %}
+    <input type="search" class="table-search" placeholder="Search domains…" data-target="domains-table" oninput="filterTable(this)">
+    <table class="data-table" id="domains-table">
+      <thead><tr><th class="sortable" onclick="sortTable(this)">Name</th><th>Description</th><th></th></tr></thead>
+      <tbody>
+        {% for d in domains %}
+        <tr>
+          <td class="mono">{{ d.name }}</td>
+          <td>{{ d.description or '—' }}</td>
+          <td><button class="btn-del" onclick="deleteItem('domains', '{{ d.id }}')">×</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No domains defined. Create domains to categorise your ECOPS tickets.</p>
+    {% endif %}
+  </div>
+
+  <!-- Releases Tab -->
+  <div id="tab-releases" class="tab-panel" hidden>
+    <div class="panel-head">
+      <h2>Releases</h2>
+      <button class="btn small" onclick="showModal('add-release-modal')">Add Release</button>
+      <button class="btn small" onclick="fetchOcpVersions()">Fetch OCP Versions</button>
+    </div>
+    <div id="ocp-versions-panel" hidden></div>
+    {% if releases %}
+    <input type="search" class="table-search" placeholder="Search releases…" data-target="releases-table" oninput="filterTable(this)">
+    <table class="data-table" id="releases-table">
+      <thead><tr><th class="sortable" onclick="sortTable(this)">Release</th><th class="sortable" onclick="sortTable(this)">OCP Version</th><th class="sortable" onclick="sortTable(this)">Status</th><th class="sortable" onclick="sortTable(this)">GA Date</th><th class="sortable" onclick="sortTable(this)">EOL</th><th>Partner Build</th><th>Docs</th><th></th></tr></thead>
+      <tbody>
+        {% for r in releases %}
+        <tr>
+          <td class="mono">{{ r.release_name }}</td>
+          <td>{{ r.ocp_version or '—' }}</td>
+          <td><span class="release-status {{ r.release_status or 'ga' }}">{{ r.release_status or 'ga' }}</span></td>
+          <td>{{ r.ga_date or '—' }}</td>
+          <td>{{ r.eol_date or '—' }}</td>
+          <td>{{ r.partner_build or '—' }}</td>
+          <td>{% if r.doc_url %}<a href="{{ r.doc_url }}" target="_blank" class="btn small">Docs</a>{% else %}—{% endif %}</td>
+          <td><button class="btn-del" onclick="deleteItem('releases', '{{ r.id }}')">×</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No releases. Add manually or use "Fetch OCP Versions" to auto-populate from the OpenShift API.</p>
+    {% endif %}
+  </div>
+
+  <!-- Operators Tab -->
+  <div id="tab-operators" class="tab-panel" hidden>
+    <div class="panel-head">
+      <h2>Operators</h2>
+      <button class="btn small" onclick="showModal('add-operator-modal')">Add Operator</button>
+    </div>
+    {% if operators %}
+    <input type="search" class="table-search" placeholder="Search operators…" data-target="operators-table" oninput="filterTable(this)">
+    <table class="data-table" id="operators-table">
+      <thead><tr><th class="sortable" onclick="sortTable(this)">Operator</th><th class="sortable" onclick="sortTable(this)">Channel</th><th class="sortable" onclick="sortTable(this)">Version</th><th class="sortable" onclick="sortTable(this)">Source</th><th class="sortable" onclick="sortTable(this)">Status</th><th>Notes</th><th>Docs</th><th></th></tr></thead>
+      <tbody>
+        {% for o in operators %}
+        <tr>
+          <td class="mono">{{ o.operator_name }}</td>
+          <td>{{ o.channel or '—' }}</td>
+          <td>{{ o.current_version or '—' }}</td>
+          <td><span class="source-badge">{{ o.source }}</span></td>
+          <td><span class="operator-status {{ o.operator_status }}">{{ o.operator_status | replace('_', ' ') }}</span></td>
+          <td>{{ o.notes or '—' }}</td>
+          <td>{% if o.doc_url %}<a href="{{ o.doc_url }}" target="_blank" class="btn small">Docs</a>{% else %}—{% endif %}</td>
+          <td style="white-space:nowrap">
+            <button class="btn small" onclick="openVersionPins('{{ o.id }}', '{{ o.operator_name | e }}')">Versions</button>
+            <button class="btn-del" onclick="deleteItem('operators', '{{ o.id }}')">×</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No operators tracked. Add operators from the partner blueprint.</p>
+    {% endif %}
+  </div>
+
+  <!-- Doc Sources Tab -->
+  <div id="tab-doc-sources" class="tab-panel" hidden>
+    <div class="panel-head">
+      <h2>Document Sources</h2>
+      <div style="display:flex;gap:0.4rem">
+        <button class="btn small{% if queue_counts.backlog %} primary{% endif %}" onclick="showQueue('backlog')">
+          Review Queue{% if queue_counts.backlog %} <span id="queue-badge" class="count-badge">{{ queue_counts.backlog }}</span>{% else %}<span id="queue-badge" class="count-badge"></span>{% endif %}
+        </button>
+        <button class="btn small" onclick="showProcessingQueue()">Processing Queue</button>
+        <button class="btn small primary" onclick="processQueue()">Process with Architect</button>
+        <button class="btn small" onclick="showModal('add-doc-source-modal')">Add Source</button>
+      </div>
+    </div>
+    <div id="queue-container" hidden></div>
+    <div id="processing-queue-container" hidden></div>
+    <p class="muted">Configure SharePoint sites or web pages containing partner architecture documents. Browse to find files, then add them as sources to research topics.</p>
+    {% if doc_sources %}
+    <div class="doc-sources-list">
+      {% for ds in doc_sources %}
+      <div class="doc-source-card" id="ds-{{ ds.id }}">
+        <div class="doc-source-head">
+          <div>
+            <h3>{{ ds.name }}</h3>
+            <span class="muted mono" style="font-size:0.75rem">{{ ds.source_type }} &middot; {{ ds.base_url }}{% if ds.path %}/{{ ds.path }}{% endif %}</span>
+            {% if ds.auth_label %}<span class="tier-badge t3" style="margin-left:0.5rem">{{ ds.auth_label }}</span>{% endif %}
+            {% if ds.last_browsed_at %}<span class="muted" style="font-size:0.72rem;margin-left:0.5rem">Last browsed: {{ ds.last_browsed_at[:16] }}</span>{% endif %}
+            {% set ls = learned_stats.get(ds.id) %}
+            <div class="skill-status-bar" style="margin-top:0.3rem">
+              {% if ls %}
+              <span class="skill-badge generated" id="learned-badge-{{ ds.id }}">{{ ls.count }} docs learned</span>
+              <span class="muted" style="font-size:0.72rem">Last: {{ ls.last_learned_at[:16] | replace('T', ' ') }} UTC</span>
+              {% else %}
+              <span class="skill-badge not-generated" id="learned-badge-{{ ds.id }}">No docs learned</span>
+              {% endif %}
+            </div>
+          </div>
+          <div style="display:flex;gap:0.4rem">
+            {% if ls %}<button class="btn small" onclick="viewLearned('{{ ds.id }}')">View learned</button>{% endif %}
+            <button class="btn small" onclick="browseDocSource('{{ ds.id }}')">Browse</button>
+            <button class="btn-del" onclick="deleteDocSource('{{ ds.id }}')">×</button>
+          </div>
+        </div>
+        <div id="browse-{{ ds.id }}" class="doc-browse-results" hidden></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted empty-hint">No document sources configured. Add a SharePoint site or document page to get started.</p>
+    {% endif %}
+  </div>
+
+  <!-- Activity Tab -->
+  <div id="tab-activity" class="tab-panel" hidden>
+    <h2>Activity Log</h2>
+    {% if activity %}
+    <ul class="activity-log">
+      {% for a in activity %}
+      <li>
+        <span class="activity-time">{{ a.created_at[:16] }}</span>
+        <span class="activity-detail">{{ a.detail }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No activity yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Jira Config Modal -->
+<div id="jira-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Jira Configuration</h2>
+    <form id="jira-form">
+      {% set jm = jira_config.jira_mode|default('mcp') if jira_config else 'mcp' %}
+
+      <div class="field">
+        <label class="label">Connection Mode</label>
+        <div class="radio-group">
+          <label class="radio-label"><input type="radio" name="jira_mode" value="mcp" {{ 'checked' if jm == 'mcp' }} onchange="togglePartnerJiraMode()"> Jira MCP</label>
+          <label class="radio-label"><input type="radio" name="jira_mode" value="api_key" {{ 'checked' if jm == 'api_key' }} onchange="togglePartnerJiraMode()"> API Key</label>
+        </div>
+      </div>
+
+      <div id="partner-jira-mcp-fields" {{ 'hidden' if jm == 'api_key' }}>
+        <div class="field">
+          <label class="label">Cloud ID</label>
+          <input type="text" name="cloud_id" value="{{ jira_config.cloud_id if jira_config else '' }}" placeholder="e.g. 2b9e35e3-... or site.atlassian.net">
+        </div>
+        <p class="muted" style="margin:0">Uses the atlassian-rovo MCP server — no API token needed.</p>
+      </div>
+
+      <div id="partner-jira-apikey-fields" {{ 'hidden' if jm != 'api_key' }}>
+        <div class="field">
+          <label class="label">Jira URL</label>
+          <input type="url" name="jira_url" value="{{ jira_config.jira_url if jira_config else '' }}" placeholder="https://your-instance.atlassian.net">
+        </div>
+        <div class="field">
+          <label class="label">Email</label>
+          <input type="email" name="jira_email" value="{{ jira_config.jira_email if jira_config else '' }}" placeholder="you@company.com">
+        </div>
+        <div class="field">
+          <label class="label">API Token</label>
+          <input type="password" name="jira_token" placeholder="{{ 'Leave blank to keep current token' if jira_config else 'Jira API token' }}">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="label">Project Key</label>
+          <input type="text" name="project_key" value="{{ jira_config.project_key if jira_config else '' }}" placeholder="e.g. ECOPS">
+        </div>
+        <div class="field">
+          <label class="label">Version Prefix</label>
+          <input type="text" name="version_prefix" value="{{ jira_config.version_prefix if jira_config else '' }}" placeholder="e.g. PartnerRAN">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('jira-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+    <p id="jira-error" class="error" hidden></p>
+  </div>
+</div>
+
+<!-- Add Ticket Modal -->
+<div id="add-ticket-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Add Ticket</h2>
+    <form id="add-ticket-form">
+      <div class="field"><label class="label">ECOPS Key</label><input type="text" name="ecops_key" required placeholder="ECOPS-123"></div>
+      <div class="field"><label class="label">Summary</label><input type="text" name="summary" placeholder="Short description"></div>
+      <div class="field"><label class="label">Resolution</label><input type="text" name="resolution" placeholder="Support Exception / Non-Impacting / Corrected / Not a Deviation"></div>
+      <div class="field">
+        <label class="label">Release</label>
+        <select name="release_id"><option value="">— none —</option>{% for r in releases %}<option value="{{ r.id }}">{{ r.release_name }}</option>{% endfor %}</select>
+      </div>
+      <div class="field">
+        <label class="label">Domain</label>
+        <select name="domain_id"><option value="">— uncategorised —</option>{% for d in domains %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}</select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('add-ticket-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Domain Modal -->
+<div id="add-domain-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Add Domain</h2>
+    <form id="add-domain-form">
+      <div class="field"><label class="label">Name</label><input type="text" name="name" required placeholder="e.g. ClusterLogging"></div>
+      <div class="field"><label class="label">Description</label><input type="text" name="description" placeholder="Optional description"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('add-domain-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Release Modal -->
+<div id="add-release-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Add Release</h2>
+    <form id="add-release-form">
+      <div class="field"><label class="label">Release Name</label><input type="text" name="release_name" required placeholder="e.g. 26R1"></div>
+      <div class="field-row">
+        <div class="field"><label class="label">OCP Version</label><input type="text" name="ocp_version" placeholder="e.g. 4.18"></div>
+        <div class="field"><label class="label">Partner Build</label><input type="text" name="partner_build" placeholder="e.g. partner.25.7.1"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label class="label">GA Date</label><input type="date" name="ga_date"></div>
+        <div class="field"><label class="label">EOL Date</label><input type="date" name="eol_date"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label class="label">Status</label>
+          <select name="release_status">
+            <option value="ga">GA</option>
+            <option value="eus">EUS</option>
+            <option value="tech_preview">Tech Preview</option>
+            <option value="rc">RC</option>
+            <option value="eol">End of Life</option>
+          </select>
+        </div>
+        <div class="field"><label class="label">Doc URL</label><input type="url" name="doc_url" placeholder="https://docs.openshift.com/..."></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('add-release-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Operator Modal -->
+<div id="add-operator-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Add Operator</h2>
+    <form id="add-operator-form">
+      <div class="field"><label class="label">Operator Name</label><input type="text" name="operator_name" required placeholder="e.g. Advanced Cluster Management"></div>
+      <div class="field-row">
+        <div class="field"><label class="label">Channel</label><input type="text" name="channel" placeholder="e.g. release-2.12"></div>
+        <div class="field"><label class="label">Version</label><input type="text" name="current_version" placeholder="e.g. 2.12.1"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="label">Source</label>
+          <select name="source">
+            <option value="redhat-operators">redhat-operators</option>
+            <option value="certified-operators">certified-operators</option>
+            <option value="partner-catalog">partner-catalog</option>
+            <option value="community-operators">community-operators</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label">Status</label>
+          <select name="operator_status">
+            <option value="deployed">Deployed</option>
+            <option value="planned">Planned</option>
+            <option value="not_used">Not Used</option>
+            <option value="tech_preview">Tech Preview</option>
+            <option value="partner_supplied">Partner Supplied</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label class="label">Doc URL</label><input type="url" name="doc_url" placeholder="https://docs.redhat.com/..."></div>
+      <div class="field"><label class="label">Notes</label><input type="text" name="notes" placeholder="Optional notes"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('add-operator-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Operator Version Pins Modal -->
+<div id="operator-pins-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Per-release versions — <span id="pins-operator-name"></span></h2>
+    <p class="muted" style="margin-bottom:1rem;font-size:0.82rem">Set the operator version deployed for each release. Leave blank to use the global default.</p>
+    <div id="pins-table-container"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="hideModal('operator-pins-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Topic Modal -->
+<div id="add-topic-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>New Research Topic</h2>
+    <form id="add-topic-form">
+      <div class="field"><label class="label">Title</label><input type="text" name="title" required placeholder="e.g. ODF Storage Architecture for MNO"></div>
+      <div class="field"><label class="label">Description</label><textarea name="description" rows="3" placeholder="What needs to be investigated"></textarea></div>
+      <div class="field">
+        <label class="label">Status</label>
+        <select name="status"><option value="open">Open</option><option value="in_progress">In Progress</option></select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('add-topic-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Knowledge Modal -->
+<div id="add-knowledge-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Add Knowledge</h2>
+    <form id="add-knowledge-form">
+      <div class="field">
+        <label class="label">Category</label>
+        <select name="category" required>
+          <option value="configuration">Configuration</option>
+          <option value="architecture">Architecture</option>
+          <option value="limitation">Limitation</option>
+          <option value="validated_finding">Validated Finding</option>
+          <option value="non_negotiable">Non-Negotiable</option>
+        </select>
+      </div>
+      <div class="field"><label class="label">Fact</label><input type="text" name="fact" required placeholder="One-line statement of fact"></div>
+      <div class="field"><label class="label">Detail</label><textarea name="detail" rows="3" placeholder="Additional context, caveats, specifics"></textarea></div>
+      <div class="field"><label class="label">Source URL</label><input type="url" name="source_url" placeholder="https://docs.openshift.com/..."></div>
+      <div class="field">
+        <label class="label">Source Tier</label>
+        <select name="source_tier">
+          <option value="1">T1 — Red Hat Official</option>
+          <option value="2">T2 — Kubernetes</option>
+          <option value="3">T3 — Partner</option>
+          <option value="4" selected>T4 — General</option>
+        </select>
+      </div>
+      <input type="hidden" name="topic_id" value="">
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('add-knowledge-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Doc Source Modal -->
+<div id="add-doc-source-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Add Document Source</h2>
+    <form id="add-doc-source-form">
+      <div class="field">
+        <label class="label">SharePoint URL</label>
+        <input type="url" name="url" required placeholder="Paste full SharePoint URL from your browser">
+        <p class="muted" style="margin-top:0.25rem;font-size:0.72rem">A browser window will open for you to log in. Authentication is captured automatically.</p>
+      </div>
+      <div class="field">
+        <label class="label">Name (optional)</label>
+        <input type="text" name="name" placeholder="Auto-detected from URL">
+      </div>
+      <p id="doc-source-status" class="muted" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('add-doc-source-modal')">Cancel</button>
+        <button type="submit" class="btn primary" id="add-doc-source-btn">Add &amp; Authenticate</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Auth Sources Modal -->
+<div id="auth-sources-modal" class="modal" hidden>
+  <div class="modal-content" style="max-width:620px">
+    <h2>Auth Sources</h2>
+    <p class="muted">Credentials for fetching authenticated URLs (e.g. partner docs, internal wikis). Matched by domain pattern.</p>
+    <div id="auth-sources-list">
+      {% if auth_sources %}
+      <table class="data-table" style="margin-bottom:1rem">
+        <thead><tr><th>Domain</th><th>Type</th><th>Label</th><th>Expires</th><th></th></tr></thead>
+        <tbody>
+          {% for a in auth_sources %}
+          <tr>
+            <td class="mono">{{ a.domain_pattern }}</td>
+            <td>{{ a.auth_type }}</td>
+            <td>{{ a.label or '—' }}</td>
+            <td>{% if a.expires_at %}<span class="mono{% if a.expires_at < now %} warn{% endif %}">{{ a.expires_at[:10] }}</span>{% else %}—{% endif %}</td>
+            <td><button class="btn-del" onclick="deleteAuthSource('{{ a.id }}')">×</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="muted empty-hint">No auth sources configured.</p>
+      {% endif %}
+    </div>
+    <details style="margin-top:0.5rem">
+      <summary style="cursor:pointer;font-size:0.85rem;color:var(--accent)">Add auth source</summary>
+      <form id="add-auth-source-form" style="margin-top:0.75rem">
+        <div class="field"><label class="label">Domain Pattern</label><input type="text" name="domain_pattern" required placeholder="e.g. docs.partner.com"></div>
+        <div class="field-row">
+          <div class="field">
+            <label class="label">Auth Type</label>
+            <select name="auth_type">
+              <option value="cookie">Cookie</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="basic">Basic Auth</option>
+            </select>
+          </div>
+          <div class="field"><label class="label">Label</label><input type="text" name="label" placeholder="e.g. Partner Wiki"></div>
+        </div>
+        <div class="field"><label class="label">Auth Value</label><textarea name="auth_value" rows="2" required placeholder="Cookie string, token, or base64 credentials"></textarea></div>
+        <div class="field"><label class="label">Expires (optional)</label><input type="date" name="expires_at"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn primary small">Add</button>
+        </div>
+      </form>
+    </details>
+    <div class="modal-actions" style="margin-top:0.75rem">
+      <button type="button" class="btn" onclick="hideModal('auth-sources-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generate result -->
+<div id="generate-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Skill Generated</h2>
+    <p id="gen-path" class="mono"></p>
+    <p>Install with:</p>
+    <pre id="gen-cmd" class="install-cmd"></pre>
+    <div class="modal-actions">
+      <button type="button" class="btn primary" onclick="hideModal('generate-modal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Jira create ticket -->
+<div id="jira-create-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Create Jira Ticket</h2>
+    <form id="jira-create-form">
+      <input type="hidden" id="jira-create-pid" name="pid">
+      <input type="hidden" id="jira-create-tid" name="tid">
+      <div class="field">
+        <label class="label">Summary</label>
+        <input type="text" name="summary" required>
+      </div>
+      <div class="field">
+        <label class="label">Description</label>
+        <textarea name="description" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label class="label">Issue Type</label>
+        <select name="issue_type">
+          <option value="Task">Task</option>
+          <option value="Bug">Bug</option>
+          <option value="Story">Story</option>
+        </select>
+      </div>
+      <p id="jira-create-error" class="error" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('jira-create-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const PARTNER_ID = "{{ partner.id }}";
+const PARTNER_SLUG = "{{ partner.slug }}";
+const RELEASES = {{ releases | tojson }};
+</script>
+{% endblock %}

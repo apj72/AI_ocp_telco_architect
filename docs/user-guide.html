@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TPS Framework — User Guide</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'neutral',
+  securityLevel: 'loose',
+  flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+  themeVariables: { fontSize: '16px' }
+});
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    document.querySelectorAll('.diagram:not(.diagram-compact) svg').forEach(function(svg) {
+      svg.removeAttribute('height');
+      svg.style.width = '100%';
+      svg.style.maxWidth = '100%';
+      svg.style.height = 'auto';
+    });
+  }, 500);
+});
+</script>
+<style>
+:root {
+  --brand: #c00;
+  --brand-dark: #900;
+  --bg: #fff;
+  --fg: #1a1a1a;
+  --muted: #666;
+  --border: #ddd;
+  --code-bg: #f5f5f5;
+  --hero-bg: #1a1a2e;
+  --hero-fg: #f0f0f0;
+  --tip-bg: #e8f5e9;
+  --tip-border: #4caf50;
+  --warn-bg: #fff3e0;
+  --warn-border: #ff9800;
+  --screenshot-bg: #f9f9f9;
+  --screenshot-border: #c00;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--fg); background: var(--bg); line-height: 1.7; }
+.hero { background: var(--hero-bg); color: var(--hero-fg); padding: 3rem 2rem; text-align: center; }
+.hero h1 { font-size: 2.2rem; margin-bottom: 0.5rem; }
+.hero p { font-size: 1.1rem; opacity: 0.85; }
+.container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+nav.toc { background: #f8f8f8; border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem 2rem; margin-bottom: 2.5rem; }
+nav.toc h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--brand); }
+nav.toc ol { padding-left: 1.5rem; }
+nav.toc li { margin-bottom: 0.3rem; }
+nav.toc a { color: var(--brand-dark); text-decoration: none; }
+nav.toc a:hover { text-decoration: underline; }
+nav.toc ol ol { margin-top: 0.2rem; font-size: 0.92rem; }
+h2 { font-size: 1.6rem; color: var(--brand); margin: 2.5rem 0 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--brand); }
+h3 { font-size: 1.25rem; color: var(--fg); margin: 1.8rem 0 0.6rem; }
+h4 { font-size: 1.05rem; margin: 1.2rem 0 0.4rem; }
+p { margin-bottom: 1rem; }
+a { color: var(--brand-dark); }
+code { background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.9em; font-family: 'SF Mono', Menlo, Consolas, monospace; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem 1.25rem; overflow-x: auto; margin-bottom: 1.2rem; line-height: 1.5; }
+pre code { background: none; padding: 0; }
+ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+li { margin-bottom: 0.3rem; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.95rem; }
+th, td { padding: 0.6rem 0.8rem; border: 1px solid var(--border); text-align: left; }
+th { background: var(--code-bg); font-weight: 600; }
+.tip, .warn { border-left: 4px solid; border-radius: 4px; padding: 0.8rem 1rem; margin-bottom: 1.2rem; }
+.tip { background: var(--tip-bg); border-color: var(--tip-border); }
+.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+.tip strong, .warn strong { display: block; margin-bottom: 0.2rem; }
+.screenshot { background: var(--screenshot-bg); border: 2px dashed var(--screenshot-border); border-radius: 6px; padding: 1.5rem; margin: 1.2rem 0; text-align: center; color: var(--muted); }
+.screenshot .label { font-weight: 600; color: var(--brand); font-size: 1rem; margin-bottom: 0.3rem; }
+.screenshot .instruction { font-size: 0.9rem; line-height: 1.5; }
+.screenshot img { max-width: 100%; border-radius: 4px; margin-top: 0.5rem; }
+.diagram { margin: 1.5rem 0; }
+.diagram pre.mermaid { background: none; border: none; padding: 0; margin: 0; }
+.diagram pre.mermaid svg { width: 100%; height: auto; max-width: 100%; }
+.diagram-compact { margin: 1.5rem auto; max-width: 480px; }
+.diagram-compact pre.mermaid { background: none; border: none; padding: 0; margin: 0; }
+.step { display: flex; gap: 1rem; margin-bottom: 1.2rem; align-items: flex-start; }
+.step-num { flex-shrink: 0; width: 2rem; height: 2rem; background: var(--brand); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; margin-top: 0.15rem; }
+.step-body { flex: 1; }
+.step-body p { margin-bottom: 0.3rem; }
+.tree { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9rem; line-height: 1.6; }
+footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 3rem; }
+@media (max-width: 640px) {
+  .hero h1 { font-size: 1.6rem; }
+  .container { padding: 1rem; }
+  h2 { font-size: 1.3rem; }
+}
+@media print {
+  .hero { background: #fff; color: #000; border-bottom: 2px solid #000; }
+  .screenshot { border-style: solid; }
+  nav.toc { break-after: page; }
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>Telco Partner Skills Framework</h1>
+  <p>User Guide &mdash; v1.0</p>
+</div>
+
+<div class="container">
+
+<!-- ============================================================ -->
+<!-- TABLE OF CONTENTS -->
+<!-- ============================================================ -->
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#installation">Installation &amp; Setup</a></li>
+    <li><a href="#getting-started">Getting Started</a>
+      <ol>
+        <li><a href="#gs-create-partner">Creating a Partner</a></li>
+        <li><a href="#gs-configure-jira">Configuring Jira</a></li>
+        <li><a href="#gs-import-tickets">Importing Tickets</a></li>
+      </ol>
+    </li>
+    <li><a href="#partner-data">Managing Partner Data</a>
+      <ol>
+        <li><a href="#ecops-tickets">ECOPS Tickets</a></li>
+        <li><a href="#domains">Domains</a></li>
+        <li><a href="#releases">Releases</a></li>
+        <li><a href="#operators">Operators</a></li>
+        <li><a href="#knowledge">Knowledge Base</a></li>
+        <li><a href="#doc-sources">Document Sources</a></li>
+        <li><a href="#topics">Research Topics</a></li>
+      </ol>
+    </li>
+    <li><a href="#skill-generation">Generating &amp; Installing Skills</a></li>
+    <li><a href="#architect">Using the Architect Terminal</a></li>
+    <li><a href="#backup">Backup &amp; Restore</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#deployment">Deployment</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<!-- 1. OVERVIEW -->
+<!-- ============================================================ -->
+<h2 id="overview">1. Overview</h2>
+
+<p>The Telco Partner Skills (TPS) Framework is a web application for building partner-specific OpenShift Telco RDS knowledge bases. It aggregates data from Jira, SharePoint, and direct entry, then generates tailored <a href="https://developers.openai.com/api/docs/guides/tools">OpenAI Architect</a> skills that give the AI full partner context.</p>
+
+<p>Each partner gets an isolated knowledge base covering support exception (ECOPS) tickets, deviation domains, release mappings, operator version pins, curated knowledge entries, learned documents, and research topics. When you generate a skill, all of this is packaged into a OpenAI Architect skill directory that the embedded Architect terminal &mdash; or any OpenAI Architect session &mdash; can use.</p>
+
+<h3>Architecture</h3>
+
+<div class="diagram">
+<pre class="mermaid">
+graph LR
+    subgraph Sources["Data Sources"]
+        direction TB
+        Jira["Jira Cloud"]
+        SP["SharePoint"]
+        OCP["OpenShift API"]
+    end
+
+    subgraph TPS["TPS Framework"]
+        direction TB
+        UI["Web UI"]
+        API["REST API"]
+        DB[("SQLite DB")]
+        Gen["Skill Generator"]
+    end
+
+    subgraph Output["Output"]
+        direction TB
+        Skill["Generated Skill"]
+        Term["Architect Terminal"]
+    end
+
+    Jira --> API
+    SP --> API
+    OCP --> API
+    UI --> API
+    API --> DB
+    DB --> Gen
+    Gen --> Skill
+    Skill --> Term
+
+    style Sources fill:#e8f0fe,stroke:#4285f4,stroke-width:2px
+    style TPS fill:#f9f9f9,stroke:#c00,stroke-width:2px
+    style Output fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. INSTALLATION -->
+<!-- ============================================================ -->
+<h2 id="installation">2. Installation &amp; Setup</h2>
+
+<h3>Prerequisites</h3>
+<ul>
+  <li>Python 3.10 or later</li>
+  <li><a href="https://developers.openai.com/api/docs/guides/tools">OpenAI Architect CLI</a> installed and authenticated</li>
+  <li>Git</li>
+</ul>
+
+<h3>Install</h3>
+<pre><code>git clone &lt;repo-url&gt;
+cd tps_framework
+pip install -r requirements.txt
+./scripts/start.sh</code></pre>
+
+<p>Open <code>http://localhost:8771</code> in your browser.</p>
+
+<h3>Environment Variables</h3>
+
+<table>
+  <thead><tr><th>Variable</th><th>Purpose</th><th>Default</th></tr></thead>
+  <tbody>
+    <tr><td><code>TPS_SECRET</code></td><td>Password for web UI access</td><td><em>none (no auth)</em></td></tr>
+    <tr><td><code>TPS_MASTER_KEY</code></td><td>Fernet key for encrypting credentials at rest</td><td><em>none (plaintext)</em></td></tr>
+    <tr><td><code>TPS_HOST</code></td><td>Bind address</td><td><code>127.0.0.1</code></td></tr>
+    <tr><td><code>TPS_PORT</code></td><td>Listen port</td><td><code>8771</code></td></tr>
+    <tr><td><code>TPS_WORKSPACE</code></td><td>Working directory for topics and research</td><td><code>~/tps-workspace</code></td></tr>
+  </tbody>
+</table>
+
+<div class="tip">
+  <strong>Tip:</strong> For local development, you can run without any environment variables. Security configuration is only needed before sharing on a network.
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. GETTING STARTED -->
+<!-- ============================================================ -->
+<h2 id="getting-started">3. Getting Started</h2>
+
+<p>This section walks through the typical workflow from first launch to using a generated skill.</p>
+
+<div class="diagram">
+<pre class="mermaid">
+flowchart LR
+    A["Start App"] --> B["Create<br/>Partner"]
+    B --> C["Configure<br/>Jira"]
+    C --> D["Import<br/>Tickets"]
+    D --> E["Add<br/>Knowledge"]
+    E --> F["Generate<br/>Skill"]
+    F --> G["Install<br/>Skill"]
+    G --> H["Use<br/>Architect"]
+
+    style A fill:#e8f5e9,stroke:#4caf50
+    style F fill:#fff3e0,stroke:#ff9800
+    style H fill:#e3f2fd,stroke:#2196f3
+</pre>
+</div>
+
+<!-- 3a. Create Partner -->
+<h3 id="gs-create-partner">3.1 Creating a Partner</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><strong>Open the Dashboard</strong> &mdash; navigate to <code>http://localhost:8771</code>. You'll see the Partners page. If this is a fresh install, there are no partners yet.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>Open Settings</strong> &mdash; click the <strong>Settings</strong> button (gear icon) in the top-right of the dashboard.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p><strong>Add a Partner</strong> &mdash; in the Settings modal, scroll to "Add Partner". Enter the partner name and click <strong>Create</strong>. The page reloads with a new partner card on the dashboard.</p>
+  </div>
+</div>
+
+<div class="screenshot">
+  <div class="label">Dashboard with Partner Cards</div>
+  <img src="screenshots/dashboard.png" alt="Dashboard with Partner Cards">
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <p><strong>Open the Partner Page</strong> &mdash; click the partner card to navigate to the partner detail page.</p>
+  </div>
+</div>
+
+<!-- 3b. Configure Jira -->
+<h3 id="gs-configure-jira">3.2 Configuring Jira</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><strong>Open Jira Settings</strong> &mdash; on the partner page, click the config dropdown (gear icon) and select <strong>Jira Settings</strong>.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>Choose a connection mode:</strong></p>
+    <ul>
+      <li><strong>MCP mode</strong> (recommended) &mdash; uses the Atlassian Remote MCP server. In TPS you only enter your <strong>Cloud ID</strong> (e.g. <code>your-site.atlassian.net</code>); there is <em>no</em> API token. Live Jira access happens through the Architect terminal, so each user must first connect and authenticate the Atlassian MCP server in their own OpenAI Architect &mdash; see <strong>3.2.1</strong> below. This one-time OAuth step is where you actually authenticate against Jira.</li>
+      <li><strong>API Key mode</strong> &mdash; enter the Jira URL, your email, and a Jira API token. Use this if you do not want to use the MCP server, or need the TPS web UI (Sync/Search) to call Jira directly. Create a token at <a href="https://id.atlassian.com/manage-profile/security/api-tokens">id.atlassian.com &rarr; Security &rarr; API tokens</a>.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="tip">
+  <strong>Where are my credentials?</strong> In <strong>MCP mode</strong>, TPS stores <em>no</em> Jira credentials &mdash; you authenticate via OAuth to the Atlassian MCP server, and OpenAI Architect caches the tokens per-user (in the macOS Keychain, item <code>OpenAI Architect-credentials</code>). In <strong>API Key mode</strong>, the API token is stored in the TPS database, encrypted with <code>TPS_MASTER_KEY</code> when set.
+</div>
+
+<!-- 3.2.1 Connect the Atlassian MCP server -->
+<h4 id="gs-connect-mcp">3.2.1 One-time: Connect the Atlassian MCP server (MCP mode)</h4>
+
+<p>MCP mode needs the Atlassian Remote MCP server configured in <strong>each user's</strong> OpenAI Architect. Credentials are per-user and per-machine &mdash; there is nothing to copy between colleagues. Follow Atlassian's
+<a href="https://support.atlassian.com/atlassian-ai-gateway/docs/get-started-with-the-atlassian-remote-mcp-server/">Get started with the Atlassian Remote MCP Server</a> guide, or the steps below.</p>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><strong>Register the server</strong> &mdash; in a terminal, run:</p>
+<pre><code>Configure the OpenAI Jira tool --transport http atlassian https://mcp.atlassian.com/v2/mcp</code></pre>
+    <p>This is the current v2 streamable-HTTP endpoint. (An older <code>atlassian-rovo</code> registration using the v1 SSE endpoint <code>https://mcp.atlassian.com/v1/sse</code> also still works &mdash; either is fine, but new setups should use v2.)</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>Authenticate</strong> &mdash; start a OpenAI Architect session and run <code>/mcp</code>, select <strong>atlassian</strong>, and choose <strong>Authenticate</strong>. A browser opens for the Atlassian OAuth 2.1 login &mdash; sign in with your Atlassian account and approve access. (Authentication also triggers automatically the first time a Jira tool is used.) Tokens refresh automatically after this.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p><strong>Verify</strong> &mdash; run <code>/mcp</code> again; <strong>atlassian</strong> should show as connected. The MCP acts with <em>your</em> existing Atlassian permissions, so you can only see and change what your account already can.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p><strong>Set the project key and version prefix</strong> &mdash; the project key (e.g. <code>ECOPS</code>) determines which Jira project to query. The version prefix filters fix versions to your partner's releases.</p>
+  </div>
+</div>
+
+<div class="screenshot">
+  <div class="label">Jira Configuration Modal</div>
+  <img src="screenshots/jira-config.png" alt="Jira Configuration Modal">
+</div>
+
+<!-- 3c. Import Tickets -->
+<h3 id="gs-import-tickets">3.3 Importing Tickets</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><strong>Sync from Jira</strong> &mdash; click the config dropdown and select <strong>Sync from Jira</strong>. A progress toast shows while tickets are imported.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>Review imported tickets</strong> &mdash; switch to the <strong>ECOPS Tickets</strong> tab. Tickets appear with their key, summary, resolution, and any release/domain assignments from Jira.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p><strong>Assign domains</strong> &mdash; use the inline domain dropdown on each ticket to categorise it. You can also click <strong>Auto-suggest from tickets</strong> on the Domains tab to create domain entries from ticket summaries.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. MANAGING PARTNER DATA -->
+<!-- ============================================================ -->
+<h2 id="partner-data">4. Managing Partner Data</h2>
+
+<p>The partner detail page organises data into tabbed panels. Click any tab to switch views. The active tab is preserved in the URL hash so bookmarks and page refreshes return to the same tab.</p>
+
+<div class="screenshot">
+  <div class="label">Partner Page Overview</div>
+  <img src="screenshots/partner-overview.png" alt="Partner Page Overview">
+</div>
+
+<!-- 4a. ECOPS Tickets -->
+<h3 id="ecops-tickets">4.1 ECOPS Tickets</h3>
+
+<p>Support exception tickets imported from Jira or added manually. Each ticket has a key (e.g. <code>ECOPS-123</code>), summary, resolution status, and optional release and domain assignments.</p>
+
+<h4>Key Actions</h4>
+<ul>
+  <li><strong>Import from Jira</strong> &mdash; config dropdown &rarr; "Sync from Jira". New tickets are added; existing tickets are updated.</li>
+  <li><strong>Add manually</strong> &mdash; click "Add Ticket", fill in the ECOPS key and summary.</li>
+  <li><strong>Assign domain</strong> &mdash; use the inline dropdown in the Domain column. No modal needed.</li>
+  <li><strong>Search</strong> &mdash; type in the search box to filter tickets across all columns.</li>
+</ul>
+
+<div class="screenshot">
+  <div class="label">ECOPS Tickets Tab</div>
+  <img src="screenshots/ecops-tickets.png" alt="ECOPS Tickets Tab">
+</div>
+
+<!-- 4b. Domains -->
+<h3 id="domains">4.2 Domains</h3>
+
+<p>Domains group ECOPS tickets by technical area (e.g. networking, storage, cluster-logging). They appear in the generated skill's support exceptions reference, organising tickets by domain for quick lookup.</p>
+
+<h4>Key Actions</h4>
+<ul>
+  <li><strong>Add manually</strong> &mdash; click "Add Domain", enter a name and optional description.</li>
+  <li><strong>Auto-suggest</strong> &mdash; if tickets exist, click "Auto-suggest from tickets". TPS analyses ticket summaries and proposes domain names. Review and accept.</li>
+  <li><strong>Delete</strong> &mdash; click the X button on any domain row.</li>
+</ul>
+
+<!-- 4c. Releases -->
+<h3 id="releases">4.3 Releases</h3>
+
+<p>Releases map partner release names to OCP versions with lifecycle dates. The generated skill uses this data to build release-specific operator tables and lifecycle information.</p>
+
+<h4>Key Actions</h4>
+<ul>
+  <li><strong>Add manually</strong> &mdash; click "Add Release". Enter the release name, OCP version, partner build identifier, dates, and status (GA, EUS, Tech Preview, RC, End of Life).</li>
+  <li><strong>Fetch OCP Versions</strong> &mdash; click "Fetch OCP Versions" to load the latest release data from the OpenShift API. Each OCP version card shows the latest z-stream, GA/EOL dates, and an "Add as Release" button.</li>
+</ul>
+
+<div class="screenshot">
+  <div class="label">Releases Tab</div>
+  <img src="screenshots/releases.png" alt="Releases Tab">
+</div>
+
+<!-- 4d. Operators -->
+<h3 id="operators">4.4 Operators</h3>
+
+<p>Operators track which OLM operators the partner deploys, their channels, versions, and deployment status. Each operator can have per-release version pins &mdash; recording which exact version is required for each partner release.</p>
+
+<h4>Key Actions</h4>
+<ul>
+  <li><strong>Add operator</strong> &mdash; click "Add Operator". Enter the operator name, channel, version, source catalogue, and deployment status.</li>
+  <li><strong>Pin versions per release</strong> &mdash; click the "Versions" button on an operator row. A modal shows all releases with editable version fields. Enter the pinned version for each release and save.</li>
+</ul>
+
+<div class="tip">
+  <strong>Tip:</strong> Per-release operator version pins appear in the generated skill's release reference file, giving the Architect exact version information for each partner release.
+</div>
+
+<!-- 4e. Knowledge -->
+<h3 id="knowledge">4.5 Knowledge Base</h3>
+
+<p>The knowledge base stores curated facts about the partner's architecture, configuration, and constraints. Entries are categorised and have a review status.</p>
+
+<h4>Categories</h4>
+<table>
+  <thead><tr><th>Category</th><th>Use For</th></tr></thead>
+  <tbody>
+    <tr><td>Configuration</td><td>Partner-specific config choices (e.g. "Uses bond0 for SRIOV interfaces")</td></tr>
+    <tr><td>Architecture</td><td>Architectural decisions (e.g. "SNO deployment with compact control plane")</td></tr>
+    <tr><td>Limitation</td><td>Known constraints or restrictions</td></tr>
+    <tr><td>Validated Finding</td><td>Facts confirmed through research or testing</td></tr>
+    <tr><td>Non-Negotiable</td><td>Hard requirements that must always be met</td></tr>
+  </tbody>
+</table>
+
+<h4>Status Workflow</h4>
+
+<div class="diagram-compact">
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> Pending : new entry
+    Pending --> Confirmed : review &amp; confirm
+    Pending --> Rejected : reject
+    Confirmed --> Outdated : mark outdated
+    Rejected --> [*]
+</pre>
+</div>
+
+<h4>Key Actions</h4>
+<ul>
+  <li><strong>Add knowledge</strong> &mdash; click "Add Knowledge". Select the category, enter the fact and detail.</li>
+  <li><strong>Confirm/Reject</strong> &mdash; pending entries show Confirm and Reject buttons.</li>
+  <li><strong>Mark outdated</strong> &mdash; confirmed entries can be marked outdated when they no longer apply.</li>
+  <li><strong>Filter</strong> &mdash; use the category and status filter bars to narrow the view.</li>
+  <li><strong>Promote from research</strong> &mdash; in a topic's notes section, click "Save to knowledge" to pre-fill the knowledge form with a research finding.</li>
+</ul>
+
+<div class="screenshot">
+  <div class="label">Knowledge Tab</div>
+  <img src="screenshots/knowledge.png" alt="Knowledge Tab">
+</div>
+
+<!-- 4f. Doc Sources -->
+<h3 id="doc-sources">4.6 Document Sources</h3>
+
+<p>Connect SharePoint sites or web pages containing partner architecture documents. TPS can browse folder structures, learn documents (extracting content into the knowledge pipeline), and track what's been processed.</p>
+
+<h4>Workflow</h4>
+
+<div class="diagram">
+<pre class="mermaid">
+flowchart LR
+    A["Add Source"] --> B["Browse<br/>Files"]
+    B --> C["Learn<br/>Documents"]
+    C --> D["Review<br/>Queue"]
+    D -->|approve| E["Processing<br/>Queue"]
+    D -->|ignore| F["Skipped"]
+    E --> G["Process with<br/>Architect"]
+    G --> H["Knowledge<br/>Entries"]
+
+    style A fill:#e8f5e9,stroke:#4caf50
+    style D fill:#fff3e0,stroke:#ff9800
+    style H fill:#e3f2fd,stroke:#2196f3
+</pre>
+</div>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><strong>Add a document source</strong> &mdash; click "Add Source". Enter the SharePoint URL. A browser window opens for SSO authentication. TPS captures your auth cookie for future browsing.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>Browse files</strong> &mdash; click "Browse" on a source card. Navigate folders using the breadcrumb trail. Click "Learn" on individual files or use "Learn new" to batch-learn all new files in a folder.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p><strong>Review learned documents</strong> &mdash; click "Review Queue". Documents are grouped by folder. Use the <strong>Approve</strong> and <strong>Ignore</strong> buttons to sort documents.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <p><strong>Process with Architect</strong> &mdash; click "Process with Architect". This sends a prompt to the embedded terminal instructing Claude to extract knowledge from all approved documents.</p>
+  </div>
+</div>
+
+<div class="screenshot">
+  <div class="label">Document Sources</div>
+  <img src="screenshots/doc-sources.png" alt="Document Sources Tab">
+</div>
+
+<div class="screenshot">
+  <div class="label">Review Queue</div>
+  <img src="screenshots/review-queue.png" alt="Review Queue">
+</div>
+
+<!-- 4g. Topics -->
+<h3 id="topics">4.7 Research Topics</h3>
+
+<p>Research topics track ongoing investigations across sessions. Each topic has notes, linked sources, results, and linked Jira tickets. The Architect terminal automatically creates and updates topics as it works, providing persistent, scoped memory.</p>
+
+<h4>Topic Lifecycle</h4>
+
+<div class="diagram-compact">
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> Open : create topic
+    Open --> InProgress : start work
+    InProgress --> Resolved : findings captured
+    InProgress --> Parked : defer for later
+    Parked --> InProgress : resume
+    Resolved --> [*]
+
+    InProgress : Add notes, sources,
+    InProgress : results, linked tickets
+</pre>
+</div>
+
+<h4>Topic Components</h4>
+
+<table>
+  <thead><tr><th>Component</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Notes</strong></td><td>Research findings, decisions, questions, conversation logs. Types: Research, Question, Answer, Decision, Reference, Conversation.</td></tr>
+    <tr><td><strong>Sources</strong></td><td>URLs with auto-fetched content and tiered classification (T1 Red Hat, T2 Kubernetes, T3 Partner, T4 Community).</td></tr>
+    <tr><td><strong>Results</strong></td><td>Deliverables produced: documents, presentations, links, reports.</td></tr>
+    <tr><td><strong>Linked Tickets</strong></td><td>Related Jira tickets with relationship types (Related, Created, Blocking, Resolved by).</td></tr>
+    <tr><td><strong>Interaction Log</strong></td><td>Automatic log of Architect terminal prompts and responses for this topic.</td></tr>
+  </tbody>
+</table>
+
+<h4>Key Actions</h4>
+<ul>
+  <li><strong>Create a topic</strong> &mdash; click "New Topic" on the Topics tab. Enter a title and description.</li>
+  <li><strong>Expand inline</strong> &mdash; click a topic card to expand it in-place with all subsections.</li>
+  <li><strong>Open in new tab</strong> &mdash; click the arrow icon on a topic card to open a dedicated topic page.</li>
+  <li><strong>Add notes</strong> &mdash; in the expanded view, use the note form to add findings. Click "Save to knowledge" on a note to promote it to the knowledge base.</li>
+  <li><strong>Link Jira tickets</strong> &mdash; enter a ticket key and relationship type. In API Key mode, you can search Jira and review ticket details inline.</li>
+</ul>
+
+<div class="screenshot">
+  <div class="label">Expanded Topic</div>
+  <img src="screenshots/topic-expanded.png" alt="Expanded Topic">
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. SKILL GENERATION -->
+<!-- ============================================================ -->
+<h2 id="skill-generation">5. Generating &amp; Installing Skills</h2>
+
+<p>Skill generation packages all partner data into a OpenAI Architect skill directory. The generated skill gives Claude full context about the partner's architecture, support exceptions, releases, and knowledge.</p>
+
+<h3>Generating a Skill</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>On the partner page, click the config dropdown and select <strong>Generate Skill</strong>.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>A modal appears showing the output path and the install command. Copy the <code>ln -sf</code> command.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>Run the command in your terminal to install the skill:</p>
+    <pre><code>ln -sf /path/to/output/&lt;partner&gt;-rds-expert ~/.claude/skills/&lt;partner&gt;-rds-expert</code></pre>
+  </div>
+</div>
+
+<div class="screenshot">
+  <div class="label">Skill Generation Result</div>
+  <img src="screenshots/skill-generation.png" alt="Skill Generation Result">
+</div>
+
+<h3>Generated Skill Structure</h3>
+
+<pre><code>&lt;partner&gt;-rds-expert/
+├── SKILL.md                    Skill manifest (persona, guardrails, API reference)
+├── OPENAI.md                   Terminal context (relative paths)
+├── README.md                   Installation instructions
+└── reference/
+    ├── &lt;partner&gt;-releases.md   Release mapping + operator version pins
+    ├── support-exceptions.md   ECOPS tickets organised by domain
+    ├── knowledge.md            Curated knowledge entries
+    ├── partner-documents.md    Learned document extracts
+    └── response-template.md    Response structure template</code></pre>
+
+<h3>Keeping Skills Up to Date</h3>
+
+<p>The partner page header shows when the skill was last generated and whether data has changed since. If you see an <strong>"outdated"</strong> badge next to the skill version, re-generate the skill to capture recent changes.</p>
+
+<div class="tip">
+  <strong>Tip:</strong> Regenerating a skill bumps the version number. The Architect terminal automatically uses the latest version when you start a new session.
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. ARCHITECT TERMINAL -->
+<!-- ============================================================ -->
+<h2 id="architect">6. Using the Architect Terminal</h2>
+
+<p>The Architect terminal is an embedded OpenAI Architect session on each partner page. It runs inside the generated skill directory, giving Claude full access to partner context &mdash; support exceptions, knowledge entries, release mappings, and learned documents.</p>
+
+<h3>Starting a Session</h3>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>On the partner page, click <strong>Start Session</strong> in the Architect section. The terminal connects via WebSocket and launches OpenAI Architect with the partner's skill loaded.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>Type prompts directly in the terminal. Claude has access to all partner reference files and can query the TPS REST API to create topics, add knowledge, and log interactions.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>Click <strong>End Session</strong> to close the terminal when done.</p>
+  </div>
+</div>
+
+<div class="screenshot">
+  <div class="label">Architect Terminal</div>
+  <img src="screenshots/architect-terminal.png" alt="Architect Terminal">
+</div>
+
+<h3>Automatic Topic Logging</h3>
+
+<p>When the Architect is working on a research topic, interactions are automatically logged to the topic's interaction log via lifecycle hooks. The partner page shows which topic is currently active. This provides persistent memory across sessions &mdash; when you resume a topic later, the Architect can review previous interactions and notes.</p>
+
+<h3>The Architect Can:</h3>
+<ul>
+  <li>Review partner manifests against the support exceptions knowledge base</li>
+  <li>Assess operator compatibility for specific releases</li>
+  <li>Create and manage research topics</li>
+  <li>Add knowledge entries from research findings</li>
+  <li>Log conversation summaries as topic notes</li>
+  <li>Look up live ECOPS ticket details via Jira MCP tools</li>
+</ul>
+
+<!-- ============================================================ -->
+<!-- 7. BACKUP & RESTORE -->
+<!-- ============================================================ -->
+<h2 id="backup">7. Backup &amp; Restore</h2>
+
+<p>TPS automatically backs up the SQLite database and workspace directory on a daily schedule. Backups are validated with SQLite <code>PRAGMA integrity_check</code> before being accepted, ensuring every backup is restorable.</p>
+
+<h3>What Gets Backed Up</h3>
+<ul>
+  <li><strong>Database</strong> &mdash; all partners, tickets, domains, releases, knowledge entries, topics, notes, and configuration</li>
+  <li><strong>Workspace</strong> &mdash; the full <code>~/tps-workspace</code> tree including research results, working files, and interaction logs</li>
+</ul>
+<p>Both are bundled into a single <code>.zip</code> file.</p>
+
+<h3>Automatic Schedule</h3>
+<p>A backup runs automatically when TPS starts, following this retention scheme:</p>
+<table>
+  <thead><tr><th>Day</th><th>Backup File</th><th>Retention</th></tr></thead>
+  <tbody>
+    <tr><td>Monday</td><td><code>weekly_YYYY-MM-DD.zip</code></td><td>Last 4 weeks retained</td></tr>
+    <tr><td>Tuesday &ndash; Friday</td><td><code>daily.zip</code></td><td>Overwritten each day</td></tr>
+    <tr><td>Saturday &ndash; Sunday</td><td colspan="2">No automatic backup</td></tr>
+  </tbody>
+</table>
+<p>This provides up to 4 weeks of recovery points via Monday snapshots, plus a rolling daily backup for the current week.</p>
+
+<h3>Manual Backup</h3>
+<p>Open <strong>Settings</strong> from the dashboard and click <strong>Backup Now</strong> in the Backups section. Manual backups are saved as <code>manual_YYYYMMDD_HHMMSS.zip</code> and are never automatically deleted.</p>
+
+<h3>Restoring from a Backup</h3>
+
+<div class="warn">
+  <strong>Important:</strong> Restoring replaces all current data with the backup contents. A safety backup of your current state is created automatically before the restore proceeds.
+</div>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p>Open <strong>Settings</strong> from the dashboard.</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p>Click <strong>Restore&hellip;</strong> and select a <code>.zip</code> backup file.</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p>Confirm the restore when prompted. The backup is validated before any changes are made.</p>
+  </div>
+</div>
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <p>The page reloads automatically with the restored data.</p>
+  </div>
+</div>
+
+<h3>Command-Line Backup</h3>
+<p>For cron jobs or scripted backups, use the standalone script:</p>
+<pre><code>./scripts/backup.sh                  # Default: saves to data/backups/
+./scripts/backup.sh /mnt/nas/tps     # Custom destination</code></pre>
+<p>The script uses SQLite's <code>.backup</code> command for a safe online copy, validates the result, and bundles the workspace into the zip.</p>
+
+<h3>Backup Location</h3>
+<p>All backups are stored in <code>data/backups/</code> within the project directory. To download a backup, open Settings and click the filename link in the backup list.</p>
+
+<div class="tip">
+  <strong>Tip:</strong> If restoring on a different machine, you will need the same <code>TPS_MASTER_KEY</code> to decrypt Jira tokens and auth source credentials stored in the database.
+</div>
+
+<!-- ============================================================ -->
+<!-- 8. SECURITY -->
+<!-- ============================================================ -->
+<h2 id="security">8. Security</h2>
+
+<h3>Default Posture</h3>
+<p>TPS binds to <code>127.0.0.1</code> (localhost only) by default. No authentication is required for local development &mdash; the app is only accessible from your machine.</p>
+
+<h3>Password Protection</h3>
+<pre><code>export TPS_SECRET=your-password-here
+./scripts/start.sh</code></pre>
+<p>All routes redirect to <code>/login</code> until authenticated. The WebSocket terminal returns 403 for unauthenticated requests.</p>
+
+<h3>Encryption at Rest</h3>
+<pre><code># Generate a Fernet key (one-time)
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+export TPS_MASTER_KEY=&lt;key from above&gt;</code></pre>
+<p>Jira API tokens and auth source credentials are encrypted with the Fernet key before storage in SQLite. Existing plaintext rows are encrypted on next save.</p>
+
+<h3>Security Headers</h3>
+<p>TPS sets the following headers on all responses:</p>
+<table>
+  <thead><tr><th>Header</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td><code>Content-Security-Policy</code></td><td>Restricts scripts/styles to self, blocks framing and object embeds</td></tr>
+    <tr><td><code>X-Content-Type-Options</code></td><td><code>nosniff</code></td></tr>
+    <tr><td><code>X-Frame-Options</code></td><td><code>DENY</code></td></tr>
+    <tr><td><code>Referrer-Policy</code></td><td><code>same-origin</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Credential Handling</h3>
+<ul>
+  <li>Jira API tokens are <strong>never sent back to the browser</strong> &mdash; the form shows a placeholder when configured</li>
+  <li>Auth source credentials follow the same encrypt-at-rest pattern</li>
+  <li>The SQLite database and generated outputs are gitignored</li>
+</ul>
+
+<h3>XSS Prevention</h3>
+<p>All user-supplied content rendered via JavaScript is escaped through a dedicated <code>esc()</code> function before innerHTML insertion. This covers topic titles, directory names, breadcrumbs, and error messages &mdash; preventing cross-site scripting from stored or reflected content.</p>
+
+<h3>Database File Permissions</h3>
+<p>The SQLite database is created with mode <code>0600</code> (owner read/write only). This prevents other users on a shared system from reading partner data, Jira tokens, or auth credentials stored in the database.</p>
+
+<h3>Dependency Pinning</h3>
+<p>All Python dependencies in <code>requirements.txt</code> are pinned to exact versions (<code>==</code>) to prevent supply-chain attacks via malicious package updates. Run <code>pip install --upgrade</code> deliberately when updating dependencies.</p>
+
+<h3>Data Isolation</h3>
+<p>Each deployment is single-user. No data sharing between partners or users. Credentials and commercially sensitive information stay local to the machine.</p>
+
+<div class="warn">
+  <strong>Important:</strong> Before exposing TPS on a network, always configure both <code>TPS_SECRET</code> and <code>TPS_MASTER_KEY</code>.
+</div>
+
+<!-- ============================================================ -->
+<!-- 9. DEPLOYMENT -->
+<!-- ============================================================ -->
+<h2 id="deployment">9. Deployment</h2>
+
+<h3>Local Development</h3>
+<pre><code>./scripts/start.sh    # Start
+./scripts/stop.sh     # Stop</code></pre>
+
+<h3>Docker / Podman</h3>
+<pre><code>docker-compose up -d</code></pre>
+<p>The container runs as a non-root user (<code>tps</code>), exposes port 8000, and persists data to a <code>/data</code> volume. Set <code>TPS_SECRET</code> and <code>TPS_MASTER_KEY</code> via environment variables in your compose file or <code>.env</code>.</p>
+
+<h3>Systemd</h3>
+<p>A service unit is provided at <code>scripts/tps.service</code>:</p>
+<pre><code>sudo cp scripts/tps.service /etc/systemd/system/
+# Edit the service file to set paths and environment variables
+sudo systemctl enable --now tps</code></pre>
+
+<!-- ============================================================ -->
+<!-- 10. TROUBLESHOOTING -->
+<!-- ============================================================ -->
+<h2 id="troubleshooting">10. Troubleshooting</h2>
+
+<table>
+  <thead><tr><th>Problem</th><th>Solution</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Architect terminal won't start</td>
+      <td>Ensure OpenAI Architect CLI is installed and authenticated (<code>OPENAI_API_KEY configured</code>). Generate a skill first &mdash; the terminal requires a skill directory to exist.</td>
+    </tr>
+    <tr>
+      <td>"Skill outdated" badge shown</td>
+      <td>Data has changed since the last skill generation. Click config &rarr; Generate Skill to rebuild.</td>
+    </tr>
+    <tr>
+      <td>Jira sync returns no tickets</td>
+      <td>Check the project key and version prefix in Jira Settings. In API Key mode, verify the token has read access to the project. Check the browser console for error details.</td>
+    </tr>
+    <tr>
+      <td>Jira not working in MCP mode (terminal)</td>
+      <td>The Atlassian MCP server must be connected and authenticated in <em>your</em> OpenAI Architect &mdash; see <a href="#gs-connect-mcp">3.2.1</a>. Run <code>/mcp</code> to check <strong>atlassian</strong> is connected; if not, register it (<code>Configure the OpenAI Jira tool --transport http atlassian https://mcp.atlassian.com/v2/mcp</code>) and authenticate via the browser OAuth flow. Credentials are per-user &mdash; each colleague must do this on their own machine; nothing is copied from another user.</td>
+    </tr>
+    <tr>
+      <td>SharePoint auth fails</td>
+      <td>Auth cookies expire. Delete the auth source and re-add it to trigger a fresh browser login. Ensure Playwright is installed (<code>playwright install chromium</code>).</td>
+    </tr>
+    <tr>
+      <td>Port already in use</td>
+      <td>Set a different port: <code>TPS_PORT=9000 ./scripts/start.sh</code>. Or stop the existing instance: <code>./scripts/stop.sh</code>.</td>
+    </tr>
+    <tr>
+      <td>Document learning is slow</td>
+      <td>Large documents (PDFs, PPTX) take time to extract. The progress bar shows extraction status. Consider learning documents in batches.</td>
+    </tr>
+    <tr>
+      <td>Login page appears unexpectedly</td>
+      <td><code>TPS_SECRET</code> is set. Either enter the password or unset the variable for local development.</td>
+    </tr>
+    <tr>
+      <td>Encryption errors after restart</td>
+      <td>The <code>TPS_MASTER_KEY</code> must be the same key used when credentials were encrypted. If lost, delete and re-enter Jira tokens and auth sources.</td>
+    </tr>
+  </tbody>
+</table>
+
+</div>
+
+<footer>
+  TPS Framework User Guide &mdash; Generated July 2026
+</footer>
+
+</body>
+</html>

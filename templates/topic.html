@@ -1,0 +1,13 @@
+{% extends "_base.html" %}
+{% block title %}{{ topic.title }} — {{ partner.name }}{% endblock %}
+{% block nav_extra %}<span class="nav-crumb">/ <a href="/partner/{{ partner.slug }}" style="color:var(--accent);text-decoration:none">{{ partner.name }}</a> / {{ topic.title }}</span>{% endblock %}
+{% block content %}
+<div class="partner-page">
+  <div id="topic-detail-view"></div>
+</div>
+<script>
+const PARTNER_ID = "{{ partner.id }}";
+const PARTNER_SLUG = "{{ partner.slug }}";
+document.addEventListener("DOMContentLoaded", () => expandTopic("{{ topic.id }}"));
+</script>
+{% endblock %}

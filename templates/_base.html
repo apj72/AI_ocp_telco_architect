@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Telco Partner Skills{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <nav class="topbar">
+    <a href="/" class="brand">Telco Partner Skills</a>
+    {% block nav_extra %}{% endblock %}
+  </nav>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

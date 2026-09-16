@@ -1,0 +1,181 @@
+{% extends "_base.html" %}
+{% block title %}Dashboard — Telco Partner Skills{% endblock %}
+{% block content %}
+<div class="dashboard">
+  <div class="section-head">
+    <h1>Partners</h1>
+    <button class="btn" onclick="showModal('settings-modal')">Settings</button>
+  </div>
+
+  {% if partners %}
+  <div class="card-grid">
+    {% for p in partners %}
+    <a href="/partner/{{ p.slug }}" class="partner-card">
+      <h2>{{ p.name }}</h2>
+      <div class="card-stats">
+        <span class="stat">{{ p.stats.tickets }} tickets</span>
+        <span class="stat">{{ p.stats.domains }} domains</span>
+        <span class="stat">{{ p.stats.releases }} releases</span>
+        <span class="stat">{{ p.stats.topics }} topics</span>
+        <span class="stat">{{ p.stats.knowledge }} knowledge</span>
+        {% if p.stats.uncategorised > 0 %}
+        <span class="stat warn">{{ p.stats.uncategorised }} uncategorised</span>
+        {% endif %}
+      </div>
+      <div class="card-meta">{{ p.slug }}-rds-expert</div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted empty-hint">No partners yet. Create one to get started.</p>
+  {% endif %}
+
+  {% if activity %}
+  <div class="section-head" style="margin-top:2rem">
+    <h2>Recent Activity</h2>
+  </div>
+  <ul class="activity-log">
+    {% for a in activity %}
+    <li>
+      <span class="activity-time">{{ a.created_at[:16] }}</span>
+      {% if a.partner_name %}<span class="activity-partner">{{ a.partner_name }}</span>{% endif %}
+      <span class="activity-detail">{{ a.detail }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal" hidden>
+  <div class="modal-content" style="max-width:650px">
+    <h2>Settings</h2>
+
+    <div class="settings-section">
+      <h3>Output Directory</h3>
+      <div class="settings-row" style="gap:0.5rem">
+        <input type="text" id="output-path-display" readonly style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:0.4rem 0.6rem; border-radius:4px; font-family:var(--font); font-size:0.8rem">
+        <button class="btn small" onclick="openDirBrowser()">Browse</button>
+      </div>
+    </div>
+
+    {% if partners %}
+    {% for p in partners %}
+    <div class="settings-partner-section">
+      <div class="settings-partner-head">
+        <h3>{{ p.name }}</h3>
+        <button class="btn-del" onclick="if(confirm('Delete {{ p.name }} and all data?'))deletePartner('{{ p.id }}')" title="Delete partner">&times;</button>
+      </div>
+      <div class="settings-row">
+        <span class="muted">Jira</span>
+        {% set jc = p.get('jira_config') %}
+        {% if jc %}
+        <span class="settings-status connected">{{ jc.project_key }} ({{ jc.jira_mode|default('mcp') }})</span>
+        {% else %}
+        <span class="settings-status">Not configured</span>
+        {% endif %}
+        <button class="btn small" onclick="openJiraSettings('{{ p.id }}', '{{ p.name }}', {{ p.jira_config|tojson if p.jira_config else 'null' }})">Configure</button>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="settings-section">
+      <h3>Backups</h3>
+      <p class="muted" style="margin:0 0 0.5rem; font-size:0.78rem">Database + workspace. Monday backups retained 4 weeks; Tue–Fri overwrites daily.</p>
+      <div class="actions" style="margin-bottom:0.75rem; gap:0.5rem">
+        <button class="btn small" onclick="createBackup()">Backup Now</button>
+        <label class="btn small" style="cursor:pointer; margin:0">
+          Restore&hellip; <input type="file" accept=".zip" hidden onchange="restoreBackup(this)">
+        </label>
+      </div>
+      <div id="backup-list"></div>
+    </div>
+
+    <div class="settings-add-partner">
+      <h3>Add Partner</h3>
+      <form id="new-partner-form">
+        <div class="field" style="margin-bottom:0.5rem">
+          <input type="text" id="partner-name" name="name" required placeholder="e.g. Acme Telecom">
+        </div>
+        <button type="submit" class="btn primary small">Create</button>
+      </form>
+      <p id="new-partner-error" class="error" hidden></p>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="hideModal('settings-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Jira Config Modal (from settings) -->
+<div id="settings-jira-modal" class="modal" hidden>
+  <div class="modal-content">
+    <h2>Jira Configuration — <span id="settings-jira-partner-name"></span></h2>
+    <form id="settings-jira-form">
+      <input type="hidden" id="settings-jira-pid" name="pid" value="">
+
+      <div class="field">
+        <label class="label">Connection Mode</label>
+        <div class="radio-group">
+          <label class="radio-label"><input type="radio" name="jira_mode" value="mcp" checked onchange="toggleJiraMode()"> Jira MCP</label>
+          <label class="radio-label"><input type="radio" name="jira_mode" value="api_key" onchange="toggleJiraMode()"> API Key</label>
+        </div>
+      </div>
+
+      <div id="jira-mcp-fields">
+        <div class="field">
+          <label class="label">Cloud ID</label>
+          <input type="text" name="cloud_id" placeholder="e.g. 2b9e35e3-6bd3-4cec-b838-f4249ee02432 or site.atlassian.net">
+        </div>
+        <p class="muted" style="margin:0">Uses the atlassian-rovo MCP server — no API token needed.</p>
+      </div>
+
+      <div id="jira-apikey-fields" hidden>
+        <div class="field">
+          <label class="label">Jira URL</label>
+          <input type="url" name="jira_url" placeholder="https://your-instance.atlassian.net">
+        </div>
+        <div class="field">
+          <label class="label">Email</label>
+          <input type="email" name="jira_email" placeholder="you@company.com">
+        </div>
+        <div class="field">
+          <label class="label">API Token</label>
+          <input type="password" name="jira_token" placeholder="Jira API token">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="label">Project Key</label>
+          <input type="text" name="project_key" placeholder="e.g. ECOPS">
+        </div>
+        <div class="field">
+          <label class="label">Version Prefix</label>
+          <input type="text" name="version_prefix" placeholder="e.g. PartnerRAN">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="hideModal('settings-jira-modal')">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+    <p id="settings-jira-error" class="error" hidden></p>
+  </div>
+</div>
+
+<!-- Directory Browser Modal -->
+<div id="dir-browser-modal" class="modal" hidden>
+  <div class="modal-content" style="max-width:600px">
+    <h2>Select Output Directory</h2>
+    <div id="dir-breadcrumb" class="dir-breadcrumb"></div>
+    <div id="dir-listing" class="dir-listing"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="hideModal('dir-browser-modal')">Cancel</button>
+      <button type="button" class="btn primary" onclick="selectDir()">Select This Directory</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

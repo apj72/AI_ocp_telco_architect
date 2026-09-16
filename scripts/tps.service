@@ -1,0 +1,18 @@
+[Unit]
+Description=Telco Partner Skills (TPS)
+After=network.target
+
+[Service]
+Type=simple
+User=tps
+Group=tps
+WorkingDirectory=/opt/tps
+ExecStart=/opt/tps/.venv/bin/python -m uvicorn tps.app:app --host 127.0.0.1 --port 8000
+EnvironmentFile=/etc/tps/tps.env
+Restart=on-failure
+RestartSec=5
+# ponytail: bare minimum hardening; add PrivateTmp=yes etc if threat model requires
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

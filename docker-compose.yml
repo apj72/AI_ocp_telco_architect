@@ -1,0 +1,15 @@
+services:
+  tps:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - tps_data:/data
+    environment:
+      TPS_WORKSPACE: /data
+      # TPS_SECRET: changeme
+      # TPS_MASTER_KEY: (generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+    restart: unless-stopped
+
+volumes:
+  tps_data:
