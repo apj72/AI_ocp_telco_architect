@@ -21,6 +21,12 @@ def test_health(client):
     assert r.json()["status"] == "ok"
 
 
+def test_architect_provider_catalog(client):
+    r = client.get("/api/architect/providers")
+    assert r.status_code == 200
+    assert {p["id"] for p in r.json()["providers"]} == {"openai", "claude"}
+
+
 def test_create_partner(client):
     r = client.post("/api/partners", data={"name": "TestCo"})
     assert r.status_code == 201

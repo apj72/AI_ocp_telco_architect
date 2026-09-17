@@ -49,10 +49,16 @@
         <span class="muted" style="font-size:0.8rem">{{ partner.slug }}-rds-expert v{{ partner.skill_version }} &middot; {{ partner.skill_generated_at[:16] | replace('T', ' ') }} UTC</span>
         {% if skill_outdated %}<span class="skill-outdated-badge" title="Data has changed since last skill generation">⚠ outdated</span>{% endif %}
         {% elif not skill_exists %}
-        <span class="muted" style="font-size:0.8rem">Generate the skill first to enable the terminal</span>
+        <span class="muted" style="font-size:0.8rem">Generate the partner context first to enable the Architect</span>
         {% endif %}
       </div>
       <div>
+        <label class="muted" for="architect-provider" style="font-size:0.75rem">AI provider</label>
+        <select id="architect-provider" class="select small" title="Select the AI provider for this session">
+          <option value="openai">OpenAI</option>
+          <option value="claude">Claude</option>
+        </select>
+        <input id="architect-model" class="input small" style="width:9rem" placeholder="Model (optional)" title="Optional provider model override">
         <button id="architect-start-btn" class="btn primary" onclick="startTerminal()">Start Session</button>
         <button id="architect-stop-btn" class="btn" onclick="stopTerminal()" hidden>End Session</button>
       </div>

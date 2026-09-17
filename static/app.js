@@ -1535,8 +1535,46 @@ async function suggestDomains() {
 // -- Architect Terminal --
 
 let _term = null, _termWs = null, _fitAddon = null;
+let _architectProviders = [];
 
-function startTerminal() {
+async function loadArchitectProviders() {
+  const select = document.getElementById("architect-provider");
+  if (!select) return;
+  try {
+    const data = await fetch("/api/architect/providers").then(r => r.json());
+    _architectProviders = data.providers || [];
+    select.innerHTML = "";
+    for (const provider of _architectProviders) {
+      const option = document.createElement("option");
+      option.value = provider.id;
+      option.textContent = provider.available
+        ? `${provider.label} (${provider.default_model || "default"})`
+        : `${provider.label} — unavailable`;
+      option.disabled = !provider.available;
+      option.title = provider.reason;
+      select.appendChild(option);
+    }
+    const preferred = data.default_provider || "openai";
+    if (Array.from(select.options).some(o => o.value === preferred && !o.disabled)) {
+      select.value = preferred;
+    } else {
+      const first = Array.from(select.options).find(o => !o.disabled);
+      if (first) select.value = first.value;
+    }
+    select.onchange = () => {
+      const selected = _architectProviders.find(p => p.id === select.value);
+      const model = document.getElementById("architect-model");
+      if (model && selected) model.placeholder = selected.default_model || "Model (optional)";
+    };
+    select.onchange();
+  } catch (e) {
+    toast("Could not load AI provider capabilities", "error");
+  }
+}
+
+loadArchitectProviders();
+
+async function startTerminal() {
   if (_term) return;
   const container = document.getElementById("terminal-container");
   if (!container) return;
@@ -1565,7 +1603,11 @@ function startTerminal() {
   _term.focus();
 
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  _termWs = new WebSocket(`${proto}//${location.host}/ws/terminal/${PARTNER_ID}`);
+  const provider = document.getElementById("architect-provider")?.value || "openai";
+  const model = document.getElementById("architect-model")?.value.trim() || "";
+  const params = new URLSearchParams({ provider });
+  if (model) params.set("model", model);
+  _termWs = new WebSocket(`${proto}//${location.host}/ws/terminal/${PARTNER_ID}?${params}`);
   _termWs.binaryType = "arraybuffer";
 
   _termWs.onopen = () => {

@@ -22,6 +22,7 @@ from tps.doc_browse import browse_doc_source
 from tps.research import fetch_and_extract
 from tps.skill_gen import generate_skill
 from tps.terminal import terminal_handler
+from tps.architect.config import provider_catalog
 from tps.topic_router import route_prompt, _derive_title, _recent_open_topics
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -127,6 +128,14 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/architect/providers")
+def architect_providers() -> JSONResponse:
+    return JSONResponse({
+        "default_provider": os.environ.get("AI_PROVIDER", "openai"),
+        "providers": provider_catalog(),
+    })
+
+
 # -- Dashboard --
 
 @app.get("/", response_class=HTMLResponse)
@@ -221,7 +230,12 @@ async def terminal_ws(websocket: WebSocket, pid: str):
         await websocket.close()
         return
     await websocket.accept()
-    await terminal_handler(websocket, cwd=str(skill_dir))
+    await terminal_handler(
+        websocket,
+        cwd=str(skill_dir),
+        provider=websocket.query_params.get("provider") or None,
+        model=websocket.query_params.get("model") or None,
+    )
 
 
 @app.delete("/api/partners/{pid}")

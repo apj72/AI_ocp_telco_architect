@@ -28,8 +28,13 @@ fi
 source "$ROOT/.venv/bin/activate"
 pip install -q --disable-pip-version-check -r "$ROOT/requirements.txt"
 
-if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-  echo "error: OPENAI_API_KEY is not set. Export it before starting the Architect." >&2
+AI_PROVIDER="${AI_PROVIDER:-openai}"
+if [[ "$AI_PROVIDER" == "openai" && -z "${OPENAI_API_KEY:-}" ]]; then
+  echo "error: OPENAI_API_KEY is not set for AI_PROVIDER=openai." >&2
+  exit 1
+fi
+if [[ "$AI_PROVIDER" == "claude" ]] && ! command -v "${CLAUDE_COMMAND:-claude}" >/dev/null 2>&1; then
+  echo "error: ${CLAUDE_COMMAND:-claude} is not in PATH for AI_PROVIDER=claude." >&2
   exit 1
 fi
 
