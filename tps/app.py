@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 import logging
 import threading
+import uuid
 
 from tps.db import Database, _utc_now_iso
 from tps.backup import create_backup, list_backups, restore_backup, run_scheduled, validate_backup
@@ -230,12 +231,56 @@ async def terminal_ws(websocket: WebSocket, pid: str):
         await websocket.close()
         return
     await websocket.accept()
-    await terminal_handler(
-        websocket,
-        cwd=str(skill_dir),
-        provider=websocket.query_params.get("provider") or None,
-        model=websocket.query_params.get("model") or None,
-    )
+    provider = websocket.query_params.get("provider") or None
+    model = websocket.query_params.get("model") or None
+    session = db.create_topic_session(pid, f"architect-{uuid.uuid4().hex}")
+    pending_interaction_id: str | None = None
+
+    async def route_prompt_for_session(prompt: str) -> str:
+        nonlocal pending_interaction_id, session
+        session = db.get_topic_session_by_claude_id(session["claude_session_id"]) or session
+        route = route_prompt(db, pid, session, prompt)
+        if route["decision"] == "confirm":
+            return (
+                _confirm_context(route, prompt)
+                + "\n\nOriginal user message:\n"
+                + prompt
+            )
+        if route["decision"] == "create":
+            topic = db.create_topic(pid, route["title"] or "Untitled topic")
+            route["topic_id"] = topic["id"]
+        topic = db.get_topic(route["topic_id"])
+        if not topic:
+            return _confirm_context({"reason": "no_active_topic", "candidates": []}, prompt)
+        db.update_topic_session(session["id"], active_topic_id=route["topic_id"])
+        session = db.get_topic_session_by_claude_id(session["claude_session_id"]) or session
+        interaction = db.create_topic_interaction(
+            session["id"], route["topic_id"], prompt,
+            routed_by=route["routed_by"], confidence=route.get("confidence"),
+        )
+        pending_interaction_id = interaction["id"]
+        context = f'TPS topic: "{topic["title"]}" (id={topic["id"]}).'
+        return context + "\n\nOriginal user message:\n" + prompt
+
+    async def complete_response(response_text: str) -> None:
+        nonlocal pending_interaction_id
+        if pending_interaction_id:
+            db.complete_topic_interaction(pending_interaction_id, response_text)
+            pending_interaction_id = None
+
+    try:
+        await terminal_handler(
+            websocket,
+            cwd=str(skill_dir),
+            provider=provider,
+            model=model,
+            on_prompt=route_prompt_for_session,
+            on_response=complete_response,
+        )
+    finally:
+        if pending_interaction_id:
+            db.complete_topic_interaction(pending_interaction_id, "[session ended before response completed]")
+        db.update_topic_session(session["id"], ended_at=_utc_now_iso())
 
 
 @app.delete("/api/partners/{pid}")

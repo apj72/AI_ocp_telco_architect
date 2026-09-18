@@ -59,6 +59,9 @@ active selection in the Architect header. Do not store API keys in the database.
 
 ## Implementation phases
 
+Current status: Phases 1–2 are implemented, and the session/audit portion of
+Phase 3 is in progress. Provider-specific tools remain deliberately deferred.
+
 ### Phase 1 — Boundary and configuration
 
 - Add provider configuration and validation.
@@ -79,6 +82,10 @@ active selection in the Architect header. Do not store API keys in the database.
 - Log normalized prompts/responses using the existing interaction tables.
 - Preserve the hard gate requiring user topic selection.
 - Ensure all tool/database operations enforce partner ownership.
+
+Implemented in the current slice: provider-neutral session creation, prompt
+routing through `topic_router.py`, interaction creation/completion, active-topic
+polling, and provider/model selection passed through the Architect WebSocket.
 
 ### Phase 4 — UI selection
 

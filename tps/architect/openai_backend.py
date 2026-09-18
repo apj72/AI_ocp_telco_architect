@@ -5,6 +5,7 @@ import json
 import os
 
 from tps.architect.context import instructions
+from tps.architect.base import PromptHook, ResponseHook
 
 
 def response_text(response) -> str:
@@ -23,7 +24,9 @@ def response_text(response) -> str:
 class OpenAIBackend:
     provider = "openai"
 
-    async def serve(self, websocket, cwd: str, model: str) -> None:
+    async def serve(self, websocket, cwd: str, model: str,
+                    on_prompt: PromptHook | None = None,
+                    on_response: ResponseHook | None = None) -> None:
         try:
             from openai import OpenAI
         except ImportError:
@@ -48,7 +51,7 @@ class OpenAIBackend:
                 kwargs = {
                     "model": model,
                     "instructions": instructions(cwd, "OpenAI"),
-                    "input": prompt,
+                    "input": await on_prompt(prompt) if on_prompt else prompt,
                     "max_output_tokens": int(os.environ.get("OPENAI_MAX_OUTPUT_TOKENS", "1800")),
                     "store": True,
                 }
@@ -56,8 +59,11 @@ class OpenAIBackend:
                     kwargs["previous_response_id"] = previous_response_id
                 response = await asyncio.to_thread(client.responses.create, **kwargs)
                 previous_response_id = response.id
+                text = response_text(response)
+                if on_response:
+                    await on_response(text)
                 await websocket.send_text("\r\n\x1b[1;32mArchitect:\x1b[0m\r\n")
-                await websocket.send_text(response_text(response).replace("\n", "\r\n") + "\r\n\r\n> ")
+                await websocket.send_text(text.replace("\n", "\r\n") + "\r\n\r\n> ")
             except Exception as exc:
                 await websocket.send_text(f"\r\n\x1b[1;31mOpenAI request failed:\x1b[0m {exc}\r\n\r\n> ")
 

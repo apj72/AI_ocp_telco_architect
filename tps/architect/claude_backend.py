@@ -11,11 +11,15 @@ import struct
 import subprocess
 import termios
 
+from tps.architect.base import PromptHook, ResponseHook
+
 
 class ClaudeBackend:
     provider = "claude"
 
-    async def serve(self, websocket, cwd: str, model: str) -> None:
+    async def serve(self, websocket, cwd: str, model: str,
+                    on_prompt: PromptHook | None = None,
+                    on_response: ResponseHook | None = None) -> None:
         command = shutil.which(os.environ.get("CLAUDE_COMMAND", "claude"))
         if not command:
             await websocket.send_text("Claude CLI not found in PATH.\r\n")
@@ -37,6 +41,7 @@ class ClaudeBackend:
         fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
         loop = asyncio.get_event_loop()
         done = asyncio.Event()
+        prompt_buffer = ""
 
         def on_readable():
             try:
@@ -57,7 +62,19 @@ class ClaudeBackend:
                     if msg.get("type") == "websocket.disconnect":
                         break
                     if "bytes" in msg:
-                        os.write(master_fd, msg["bytes"])
+                        data = msg["bytes"]
+                        if on_prompt:
+                            # The PTY must remain interactive, so the original
+                            # prompt is forwarded unchanged. Topic routing is
+                            # still recorded and enforced for OpenAI sessions.
+                            prompt_buffer += data.decode("utf-8", errors="replace")
+                            while "\n" in prompt_buffer or "\r" in prompt_buffer:
+                                newline_positions = [p for p in (prompt_buffer.find("\n"), prompt_buffer.find("\r")) if p >= 0]
+                                pos = min(newline_positions)
+                                line, prompt_buffer = prompt_buffer[:pos], prompt_buffer[pos + 1:]
+                                if line.strip():
+                                    await on_prompt(line.strip())
+                        os.write(master_fd, data)
                     elif "text" in msg:
                         try:
                             obj = json.loads(msg["text"])

@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Awaitable, Callable, Protocol
+
+
+PromptHook = Callable[[str], Awaitable[str]]
+ResponseHook = Callable[[str], Awaitable[None]]
 
 
 @dataclass(frozen=True)
@@ -17,5 +21,7 @@ class ArchitectEvent:
 class ArchitectBackend(Protocol):
     provider: str
 
-    async def serve(self, websocket, cwd: str, model: str) -> None:
+    async def serve(self, websocket, cwd: str, model: str,
+                   on_prompt: PromptHook | None = None,
+                   on_response: ResponseHook | None = None) -> None:
         """Serve one browser session until disconnect."""
