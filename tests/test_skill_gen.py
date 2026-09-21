@@ -1,5 +1,7 @@
+import json
+
 import pytest
-from tps.skill_gen import _render_releases_md, _render_support_exceptions_md
+from tps.skill_gen import generate_skill, _render_releases_md, _render_support_exceptions_md
 
 
 RELEASES = [
@@ -66,3 +68,12 @@ def test_render_support_exceptions_open_section():
 def test_render_support_exceptions_no_tickets():
     md = _render_support_exceptions_md("TestCo", [], DOMAINS, RELEASES)
     assert "# TestCo" in md
+
+
+def test_generate_skill_includes_claude_lifecycle_hooks(db, partner, tmp_path, monkeypatch):
+    monkeypatch.setenv("TPS_PORT", "9123")
+    out_dir = generate_skill(db, partner["id"], output_dir=tmp_path)
+    settings = json.loads((out_dir / ".claude" / "settings.json").read_text())
+    hooks = settings["hooks"]
+    assert set(hooks) == {"SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"}
+    assert "localhost:9123/hooks/session-start" in str(hooks["SessionStart"])

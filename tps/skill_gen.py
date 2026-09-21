@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import shutil
 from pathlib import Path
 
@@ -46,7 +48,7 @@ def generate_skill(db: Database, partner_id: str,
         "name": name,
         "description": "",
         "partner_id": partner_id,
-        "port": 8771,
+        "port": int(os.environ.get("TPS_PORT", "8771")),
         "ticket_count": len(tickets),
         "release_count": len(releases),
         "domain_count": len(domains),
@@ -85,14 +87,30 @@ def generate_skill(db: Database, partner_id: str,
         (out_dir / "reference" / "partner-documents.md").write_text(docs_md)
 
     # OPENAI.md is the portable context manifest consumed by the OpenAI
-    # Architect adapter. Conversation state is held by the Responses API, so
-    # provider-specific CLI hooks are deliberately not generated.
+    # Architect adapter. It also remains useful reference material for the
+    # Claude backend.
     openai_md = skill_md
     if openai_md.startswith("---"):
         _, _, openai_md = openai_md.split("---", 2)
         openai_md = openai_md.lstrip("\n")
     openai_md = openai_md.replace(f"~/.claude/skills/{slug}-rds-expert/", "./")
     (out_dir / "OPENAI.md").write_text(openai_md)
+
+    # Claude Code emits structured lifecycle events. These hooks are generated
+    # only as a Claude adapter artifact; OpenAI uses the Architect service
+    # callback path instead. Both write through the same topic/audit API.
+    hook_base = f"http://localhost:{ctx['port']}/hooks"
+    hook_cfg = {
+        "hooks": {
+            "SessionStart": [{"hooks": [{"type": "http", "url": f"{hook_base}/session-start"}]}],
+            "UserPromptSubmit": [{"hooks": [{"type": "http", "url": f"{hook_base}/prompt-submit"}]}],
+            "Stop": [{"hooks": [{"type": "http", "url": f"{hook_base}/stop"}]}],
+            "SessionEnd": [{"hooks": [{"type": "http", "url": f"{hook_base}/session-end"}]}],
+        }
+    }
+    claude_dir = out_dir / ".claude"
+    claude_dir.mkdir(exist_ok=True)
+    (claude_dir / "settings.json").write_text(json.dumps(hook_cfg, indent=2) + "\n")
 
     version = db.bump_skill_version(partner_id)
     db.log(partner_id, "skill_generated", f"Skill v{version} generated at {out_dir}")

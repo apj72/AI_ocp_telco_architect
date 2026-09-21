@@ -23,7 +23,7 @@ from tps.doc_browse import browse_doc_source
 from tps.research import fetch_and_extract
 from tps.skill_gen import generate_skill
 from tps.terminal import terminal_handler
-from tps.architect.config import provider_catalog
+from tps.architect.config import ArchitectConfig, provider_catalog
 from tps.topic_router import route_prompt, _derive_title, _recent_open_topics
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -233,6 +233,27 @@ async def terminal_ws(websocket: WebSocket, pid: str):
     await websocket.accept()
     provider = websocket.query_params.get("provider") or None
     model = websocket.query_params.get("model") or None
+    try:
+        architect_config = ArchitectConfig.from_env(provider=provider, model=model)
+    except ValueError as exc:
+        await websocket.send_text(f"Architect configuration error: {exc}\r\n")
+        await websocket.close(code=1008)
+        return
+    available, reason = architect_config.availability()
+    if not available:
+        await websocket.send_text(f"{architect_config.provider.title()} backend unavailable: {reason}.\r\n")
+        await websocket.close(code=1011)
+        return
+
+    # Claude Code supplies complete, structured prompt/response lifecycle
+    # events through the generated .claude/settings.json hooks. Do not create a
+    # duplicate terminal-derived session for it.
+    if architect_config.provider == "claude":
+        await terminal_handler(
+            websocket, cwd=str(skill_dir), provider=provider, model=model,
+        )
+        return
+
     session = db.create_topic_session(pid, f"architect-{uuid.uuid4().hex}")
     pending_interaction_id: str | None = None
 
@@ -1133,9 +1154,10 @@ async def api_restore(file: UploadFile) -> JSONResponse:
         tmp.unlink(missing_ok=True)
 
 
-# -- Architect session hooks --
-# Legacy-compatible topic endpoints; the embedded OpenAI adapter does not need
-# provider lifecycle hooks.
+# -- Claude Architect lifecycle hooks --
+# The Claude backend emits prompt/response lifecycle events through the
+# generated .claude/settings.json adapter configuration. OpenAI uses the
+# provider-neutral callbacks created by terminal_ws above.
 
 import logging as _logging
 _hook_log = _logging.getLogger("tps.hooks")

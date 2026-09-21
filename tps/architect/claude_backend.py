@@ -41,7 +41,6 @@ class ClaudeBackend:
         fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
         loop = asyncio.get_event_loop()
         done = asyncio.Event()
-        prompt_buffer = ""
 
         def on_readable():
             try:
@@ -63,17 +62,6 @@ class ClaudeBackend:
                         break
                     if "bytes" in msg:
                         data = msg["bytes"]
-                        if on_prompt:
-                            # The PTY must remain interactive, so the original
-                            # prompt is forwarded unchanged. Topic routing is
-                            # still recorded and enforced for OpenAI sessions.
-                            prompt_buffer += data.decode("utf-8", errors="replace")
-                            while "\n" in prompt_buffer or "\r" in prompt_buffer:
-                                newline_positions = [p for p in (prompt_buffer.find("\n"), prompt_buffer.find("\r")) if p >= 0]
-                                pos = min(newline_positions)
-                                line, prompt_buffer = prompt_buffer[:pos], prompt_buffer[pos + 1:]
-                                if line.strip():
-                                    await on_prompt(line.strip())
                         os.write(master_fd, data)
                     elif "text" in msg:
                         try:

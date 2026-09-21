@@ -59,8 +59,8 @@ active selection in the Architect header. Do not store API keys in the database.
 
 ## Implementation phases
 
-Current status: Phases 1–2 are implemented, and the session/audit portion of
-Phase 3 is in progress. Provider-specific tools remain deliberately deferred.
+Current status: Phases 1–3 are implemented. Provider-specific tools remain
+deliberately deferred.
 
 ### Phase 1 — Boundary and configuration
 
@@ -86,6 +86,8 @@ Phase 3 is in progress. Provider-specific tools remain deliberately deferred.
 Implemented in the current slice: provider-neutral session creation, prompt
 routing through `topic_router.py`, interaction creation/completion, active-topic
 polling, and provider/model selection passed through the Architect WebSocket.
+OpenAI uses service callbacks; Claude uses generated lifecycle-hook adapter
+configuration so complete provider responses are reliably logged.
 
 ### Phase 4 — UI selection
 
